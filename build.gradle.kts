@@ -12,10 +12,10 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.7.3")
+        classpath("com.android.tools.build:gradle:8.13.2")
         // Cloudstream gradle plugin which makes everything work and builds plugins
         classpath("com.github.recloudstream:gradle:-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0")
     }
 }
 
@@ -38,11 +38,12 @@ subprojects {
 
     cloudstream {
         // when running through github workflow, GITHUB_REPOSITORY should contain current repository name
-        setRepo(System.getenv("GITHUB_REPOSITORY") ?: "user/repo")
+        setRepo(System.getenv("GITHUB_REPOSITORY") ?: "ANDonekey/cloudstreamPlugins")
     }
 
     android {
-        namespace = "com.example"
+        // Give each plugin module its own namespace so multiple starter modules can coexist cleanly.
+        namespace = "com.cloudstream.plugins.${project.name.replace(Regex("[^A-Za-z0-9_]"), "").lowercase()}"
 
         defaultConfig {
             minSdk = 21

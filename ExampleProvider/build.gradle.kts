@@ -31,6 +31,8 @@ cloudstream {
 }
 
 android {
+    namespace = "com.example"
+
     buildFeatures {
         buildConfig = true
         viewBinding = true
