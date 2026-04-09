@@ -12,12 +12,14 @@ import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.fixUrl
+import com.lagradost.cloudstream3.mainPage
 import com.lagradost.cloudstream3.mainPageOf
 import com.lagradost.cloudstream3.newHomePageResponse
 import com.lagradost.cloudstream3.newMovieLoadResponse
 import com.lagradost.cloudstream3.newMovieSearchResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.net.URLEncoder
 
@@ -31,34 +33,31 @@ class JableProvider : MainAPI() {
     private data class Section(
         val path: String,
         val title: String,
+        val horizontalImages: Boolean = true,
     )
+
+    private data class MenuLink(
+        val title: String,
+        val url: String,
+    )
+
+    private data class MenuGroup(
+        val id: String,
+        val title: String,
+        val items: List<MenuLink>,
+    )
+
+    private val menuCategoriesPath = "__menu__/categories"
+    private val menuCategoryPrefix = "jable://menu/categories/"
+    private val listingPrefixes = listOf("/categories/", "/tags/", "/models/", "/search/")
 
     override val mainPage = mainPageOf(
         *listOf(
             Section("latest-updates", "最近更新"),
             Section("hot", "熱門影片"),
             Section("new-release", "全新上市"),
-            Section("categories/chinese-subtitle", "中文字幕"),
-            Section("categories/uniform", "制服誘惑"),
-            Section("categories/roleplay", "角色劇情"),
-            Section("categories/pantyhose", "絲襪美腿"),
-            Section("categories/pov", "第一視角"),
-            Section("categories/private-cam", "私拍偷拍"),
-            Section("categories/groupsex", "多P群交"),
-            Section("categories/insult", "凌辱快感"),
-            Section("categories/bdsm", "主奴調教"),
-            Section("categories/uncensored", "無碼"),
-            Section("tags/big-tits", "巨乳"),
-            Section("tags/beautiful-leg", "美腿"),
-            Section("tags/black-pantyhose", "黑絲"),
-            Section("tags/creampie", "中出"),
-            Section("tags/wife", "人妻"),
-            Section("models/yua-mikami", "三上悠亞"),
-            Section("models/arina-hashimoto", "橋本有菜"),
-            Section("models/saika-kawakita", "河北彩花"),
-            Section("models/kaede-karen", "楓可憐"),
-            Section("models/kirara-asuka", "明日花綺羅"),
-        ).map { it.path to it.title }.toTypedArray()
+            Section(menuCategoriesPath, "主題分類"),
+        ).map { mainPage(it.path, it.title, it.horizontalImages) }.toTypedArray()
     )
 
     private fun encodePathSegment(value: String): String {
@@ -67,6 +66,62 @@ class JableProvider : MainAPI() {
 
     private fun normalizeVideoUrl(url: String): String {
         return fixUrl(url).replace("/s0/videos/", "/videos/")
+    }
+
+    private fun menuGroupUrl(groupId: String): String {
+        return "$menuCategoryPrefix$groupId"
+    }
+
+    private fun createMenuResponse(title: String, url: String, posterUrl: String? = null): SearchResponse {
+        return newMovieSearchResponse(
+            name = title,
+            url = url,
+            type = TvType.NSFW,
+        ) {
+            this.posterUrl = posterUrl
+        }
+    }
+
+    private fun parseVideoCards(document: Document): List<SearchResponse> {
+        return document.select("div.video-img-box.mb-e-20")
+            .mapNotNull { it.toSearchResponse() }
+            .distinctBy { it.url }
+    }
+
+    private suspend fun fetchCategoryGroups(): List<MenuGroup> {
+        val document = app.get("$mainUrl/categories/").document
+
+        return document.select("div.title-box").mapNotNull { titleBox ->
+            val title = titleBox.selectFirst("h2.h3-md")?.text()?.trim().orEmpty()
+            val row = titleBox.nextElementSibling() ?: return@mapNotNull null
+            if (!row.hasClass("row") || !row.hasClass("gutter-20") || !row.hasClass("pb-3")) {
+                return@mapNotNull null
+            }
+
+            val items = row.select("a.tag[href]")
+                .mapNotNull { anchor ->
+                    val itemTitle = anchor.text().trim()
+                    val href = anchor.attr("href").trim()
+                    if (itemTitle.isBlank() || href.isBlank()) {
+                        null
+                    } else {
+                        MenuLink(
+                            title = itemTitle,
+                            url = fixUrl(href),
+                        )
+                    }
+                }
+
+            if (title.isBlank() || items.isEmpty()) {
+                null
+            } else {
+                MenuGroup(
+                    id = encodePathSegment(title),
+                    title = title,
+                    items = items,
+                )
+            }
+        }
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
@@ -86,10 +141,7 @@ class JableProvider : MainAPI() {
     }
 
     private suspend fun fetchListing(url: String): List<SearchResponse> {
-        return app.get(url).document
-            .select("div.video-img-box.mb-e-20")
-            .mapNotNull { it.toSearchResponse() }
-            .distinctBy { it.url }
+        return parseVideoCards(app.get(url).document)
     }
 
     private fun buildPagedUrl(path: String, page: Int): String {
@@ -122,17 +174,78 @@ class JableProvider : MainAPI() {
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        if (request.data == menuCategoriesPath) {
+            if (page > 1) {
+                return newHomePageResponse(request, emptyList(), false)
+            }
+
+            val groups = fetchCategoryGroups().map { group ->
+                createMenuResponse(group.title, menuGroupUrl(group.id))
+            }
+            return newHomePageResponse(request, groups, false)
+        }
+
         val url = buildPagedUrl(request.data, page)
         val document = app.get(url).document
-        val results = document.select("div.video-img-box.mb-e-20")
-            .mapNotNull { it.toSearchResponse() }
-            .distinctBy { it.url }
+        val results = parseVideoCards(document)
         val hasNext = document.select("ul.pagination a.page-link[href]")
             .any { it.attr("href").contains("/${request.data}/${page + 1}/") }
-        return newHomePageResponse(request.name, results, hasNext)
+        return newHomePageResponse(request, results, hasNext)
+    }
+
+    private suspend fun loadMenuGroup(url: String): LoadResponse {
+        val groupId = url.removePrefix(menuCategoryPrefix).substringBefore('/').trim()
+        val group = fetchCategoryGroups().firstOrNull { it.id == groupId }
+            ?: throw ErrorLoadingException("No category group found for $url")
+
+        return newMovieLoadResponse(
+            name = group.title,
+            url = url,
+            type = TvType.NSFW,
+            dataUrl = url,
+        ) {
+            this.plot = "選擇一個子分類進入影片列表。"
+            this.tags = listOf("分類導航")
+            this.recommendations = group.items.map { item ->
+                createMenuResponse(item.title, item.url)
+            }
+        }
+    }
+
+    private suspend fun loadListingPage(url: String): LoadResponse {
+        val normalizedUrl = fixUrl(url)
+        val document = app.get(normalizedUrl).document
+        val title = document.selectFirst("meta[property=og:title]")?.attr("content")
+            ?.substringBefore("|")
+            ?.trim()
+            ?.ifBlank { null }
+            ?: document.selectFirst("h2.h3-md, h4.h3-md, h1, h2, h3")?.text()?.trim()
+            ?: throw ErrorLoadingException("No listing title found for $url")
+        val posterUrl = document.selectFirst("meta[property=og:image]")?.attr("content")?.let(::fixUrl)
+        val plot = document.selectFirst("meta[name=description]")?.attr("content")?.trim()
+        val videos = parseVideoCards(document)
+
+        return newMovieLoadResponse(
+            name = title,
+            url = normalizedUrl,
+            type = TvType.NSFW,
+            dataUrl = normalizedUrl,
+        ) {
+            this.posterUrl = posterUrl
+            this.plot = plot
+            this.tags = listOf("分類頁")
+            this.recommendations = videos
+        }
     }
 
     override suspend fun load(url: String): LoadResponse {
+        if (url.startsWith(menuCategoryPrefix)) {
+            return loadMenuGroup(url)
+        }
+        if (listingPrefixes.any { url.contains(it) }) {
+            return loadListingPage(url)
+        }
+
         val response = app.get(url)
         val document = response.document
 
