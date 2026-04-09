@@ -25,7 +25,7 @@ class JableProvider : MainAPI() {
     override var mainUrl = "https://jable.tv"
     override var name = "Jable"
     override var lang = "zh"
-    override val supportedTypes = setOf(TvType.Movie)
+    override val supportedTypes = setOf(TvType.NSFW)
     override val hasMainPage = true
 
     private data class Section(
@@ -79,7 +79,7 @@ class JableProvider : MainAPI() {
         return newMovieSearchResponse(
             name = title,
             url = normalizeVideoUrl(href),
-            type = TvType.Movie,
+            type = TvType.NSFW,
         ) {
             this.posterUrl = poster?.let(::fixUrl)
         }
@@ -159,7 +159,7 @@ class JableProvider : MainAPI() {
         return newMovieLoadResponse(
             name = title,
             url = normalizeVideoUrl(url),
-            type = TvType.Movie,
+            type = TvType.NSFW,
             dataUrl = normalizeVideoUrl(url),
         ) {
             this.posterUrl = posterUrl?.let(::fixUrl)

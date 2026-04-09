@@ -5,7 +5,7 @@ cloudstream {
     authors = listOf("ANDonekey")
     status = 3
 
-    tvTypes = listOf("Movie")
+    tvTypes = listOf("NSFW")
     language = "zh"
     requiresResources = false
     iconUrl = "https://assets-cdn.jable.tv/assets/icon/favicon.png"
