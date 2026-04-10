@@ -42,17 +42,8 @@ class JableProvider : MainAPI() {
         val posterUrl: String? = null,
     )
 
-    private data class MenuGroup(
-        val id: String,
-        val title: String,
-        val items: List<MenuLink>,
-        val posterUrl: String? = null,
-    )
-
     private val menuCategoriesPath = "__menu__/categories"
-    private val menuCategoryPrefix = "$mainUrl/$menuCategoriesPath/"
     private val listingPrefixes = listOf("/categories/", "/tags/", "/models/", "/search/")
-    private val listingPosterCache = linkedMapOf<String, String?>()
 
     override val mainPage = mainPageOf(
         *listOf(
@@ -69,10 +60,6 @@ class JableProvider : MainAPI() {
 
     private fun normalizeVideoUrl(url: String): String {
         return fixUrl(url).replace("/s0/videos/", "/videos/")
-    }
-
-    private fun menuGroupUrl(groupId: String): String {
-        return "$menuCategoryPrefix$groupId"
     }
 
     private fun createMenuResponse(title: String, url: String, posterUrl: String? = null): SearchResponse {
@@ -92,57 +79,25 @@ class JableProvider : MainAPI() {
             .distinctBy { it.url }
     }
 
-    private suspend fun fetchCategoryGroups(): List<MenuGroup> {
+    private suspend fun fetchCategoryItems(): List<MenuLink> {
         val document = app.get("$mainUrl/categories/").document
 
-        return document.select("div.title-box").mapNotNull { titleBox ->
-            val title = titleBox.selectFirst("h2.h3-md")?.text()?.trim().orEmpty()
-            val row = titleBox.nextElementSibling() ?: return@mapNotNull null
-            if (!row.hasClass("row") || !row.hasClass("gutter-20") || !row.hasClass("pb-3")) {
-                return@mapNotNull null
-            }
-
-            val items = row.select("a.tag[href]")
-                .mapNotNull { anchor ->
-                    val itemTitle = anchor.text().trim()
-                    val href = anchor.attr("href").trim()
-                    if (itemTitle.isBlank() || href.isBlank()) {
-                        null
-                    } else {
-                        val itemUrl = fixUrl(href)
-                        MenuLink(
-                            title = itemTitle,
-                            url = itemUrl,
-                            posterUrl = resolveListingPoster(itemUrl),
-                        )
-                    }
+        return document.select("#list_categories_video_categories_list .video-img-box a[href]")
+            .mapNotNull { anchor ->
+                val title = anchor.selectFirst("h4")?.text()?.trim().orEmpty()
+                val href = anchor.attr("href").trim()
+                val poster = anchor.selectFirst("img[src]")?.attr("src")?.trim().orEmpty()
+                if (title.isBlank() || href.isBlank()) {
+                    null
+                } else {
+                    MenuLink(
+                        title = title,
+                        url = fixUrl(href),
+                        posterUrl = poster.takeIf { it.isNotBlank() }?.let(::fixUrl),
+                    )
                 }
-
-            if (title.isBlank() || items.isEmpty()) {
-                null
-            } else {
-                MenuGroup(
-                    id = encodePathSegment(title),
-                    title = title,
-                    items = items,
-                    posterUrl = items.firstNotNullOfOrNull { it.posterUrl },
-                )
             }
-        }
-    }
-
-    private suspend fun resolveListingPoster(url: String): String? {
-        listingPosterCache[url]?.let { return it }
-
-        val poster = runCatching {
-            val document = app.get(url).document
-            document.selectFirst("meta[property=og:image]")?.attr("content")?.takeIf { it.isNotBlank() }?.let(::fixUrl)
-                ?: document.selectFirst("div.video-img-box.mb-e-20 img[data-src]")?.attr("data-src")?.takeIf { it.isNotBlank() }?.let(::fixUrl)
-                ?: document.selectFirst("div.video-img-box.mb-e-20 img[src]")?.attr("src")?.takeIf { it.isNotBlank() }?.let(::fixUrl)
-        }.getOrNull()
-
-        listingPosterCache[url] = poster
-        return poster
+            .distinctBy { it.url }
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
@@ -200,10 +155,10 @@ class JableProvider : MainAPI() {
                 return newHomePageResponse(request, emptyList(), false)
             }
 
-            val groups = fetchCategoryGroups().map { group ->
-                createMenuResponse(group.title, menuGroupUrl(group.id), group.posterUrl)
+            val items = fetchCategoryItems().map { item ->
+                createMenuResponse(item.title, item.url, item.posterUrl)
             }
-            return newHomePageResponse(request, groups, false)
+            return newHomePageResponse(request, items, false)
         }
 
         val url = buildPagedUrl(request.data, page)
@@ -212,25 +167,6 @@ class JableProvider : MainAPI() {
         val hasNext = document.select("ul.pagination a.page-link[href]")
             .any { it.attr("href").contains("/${request.data}/${page + 1}/") }
         return newHomePageResponse(request, results, hasNext)
-    }
-
-    private suspend fun loadMenuGroup(url: String): LoadResponse {
-        val groupId = url.removePrefix(menuCategoryPrefix).substringBefore('/').trim()
-        val group = fetchCategoryGroups().firstOrNull { it.id == groupId }
-            ?: throw ErrorLoadingException("No category group found for $url")
-
-        return newMovieLoadResponse(
-            name = group.title,
-            url = url,
-            type = TvType.NSFW,
-            dataUrl = url,
-        ) {
-            this.plot = "選擇一個子分類進入影片列表。"
-            this.tags = listOf("分類導航")
-            this.recommendations = group.items.map { item ->
-                createMenuResponse(item.title, item.url, item.posterUrl)
-            }
-        }
     }
 
     private suspend fun loadListingPage(url: String): LoadResponse {
@@ -260,9 +196,6 @@ class JableProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        if (url.startsWith(menuCategoryPrefix)) {
-            return loadMenuGroup(url)
-        }
         if (listingPrefixes.any { url.contains(it) }) {
             return loadListingPage(url)
         }
