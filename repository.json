@@ -1,0 +1,8 @@
+{
+  "name": "ANDonekey Repository",
+  "description": "Jable provider repository for Cloudstream",
+  "manifestVersion": 1,
+  "pluginLists": [
+    "https://raw.githubusercontent.com/ANDonekey/cloudstreamPlugins/builds/plugins.json"
+  ]
+}
