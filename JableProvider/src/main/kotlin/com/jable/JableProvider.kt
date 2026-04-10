@@ -39,17 +39,20 @@ class JableProvider : MainAPI() {
     private data class MenuLink(
         val title: String,
         val url: String,
+        val posterUrl: String? = null,
     )
 
     private data class MenuGroup(
         val id: String,
         val title: String,
         val items: List<MenuLink>,
+        val posterUrl: String? = null,
     )
 
     private val menuCategoriesPath = "__menu__/categories"
-    private val menuCategoryPrefix = "jable://menu/categories/"
+    private val menuCategoryPrefix = "$mainUrl/$menuCategoriesPath/"
     private val listingPrefixes = listOf("/categories/", "/tags/", "/models/", "/search/")
+    private val listingPosterCache = linkedMapOf<String, String?>()
 
     override val mainPage = mainPageOf(
         *listOf(
@@ -77,6 +80,7 @@ class JableProvider : MainAPI() {
             name = title,
             url = url,
             type = TvType.NSFW,
+            fix = false,
         ) {
             this.posterUrl = posterUrl
         }
@@ -105,9 +109,11 @@ class JableProvider : MainAPI() {
                     if (itemTitle.isBlank() || href.isBlank()) {
                         null
                     } else {
+                        val itemUrl = fixUrl(href)
                         MenuLink(
                             title = itemTitle,
-                            url = fixUrl(href),
+                            url = itemUrl,
+                            posterUrl = resolveListingPoster(itemUrl),
                         )
                     }
                 }
@@ -119,9 +125,24 @@ class JableProvider : MainAPI() {
                     id = encodePathSegment(title),
                     title = title,
                     items = items,
+                    posterUrl = items.firstNotNullOfOrNull { it.posterUrl },
                 )
             }
         }
+    }
+
+    private suspend fun resolveListingPoster(url: String): String? {
+        listingPosterCache[url]?.let { return it }
+
+        val poster = runCatching {
+            val document = app.get(url).document
+            document.selectFirst("meta[property=og:image]")?.attr("content")?.takeIf { it.isNotBlank() }?.let(::fixUrl)
+                ?: document.selectFirst("div.video-img-box.mb-e-20 img[data-src]")?.attr("data-src")?.takeIf { it.isNotBlank() }?.let(::fixUrl)
+                ?: document.selectFirst("div.video-img-box.mb-e-20 img[src]")?.attr("src")?.takeIf { it.isNotBlank() }?.let(::fixUrl)
+        }.getOrNull()
+
+        listingPosterCache[url] = poster
+        return poster
     }
 
     private fun Element.toSearchResponse(): SearchResponse? {
@@ -180,7 +201,7 @@ class JableProvider : MainAPI() {
             }
 
             val groups = fetchCategoryGroups().map { group ->
-                createMenuResponse(group.title, menuGroupUrl(group.id))
+                createMenuResponse(group.title, menuGroupUrl(group.id), group.posterUrl)
             }
             return newHomePageResponse(request, groups, false)
         }
@@ -207,7 +228,7 @@ class JableProvider : MainAPI() {
             this.plot = "選擇一個子分類進入影片列表。"
             this.tags = listOf("分類導航")
             this.recommendations = group.items.map { item ->
-                createMenuResponse(item.title, item.url)
+                createMenuResponse(item.title, item.url, item.posterUrl)
             }
         }
     }
