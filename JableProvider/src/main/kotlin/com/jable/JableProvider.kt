@@ -123,9 +123,25 @@ class JableProvider : MainAPI() {
         )
     }
 
+    private fun Element.toSearchResponseFromCard(): SearchResponse? {
+        val titleAnchor = selectFirst("h6.title a") ?: select("a[href*=\"/videos/\"]").lastOrNull()
+        val href = titleAnchor?.attr("href")?.takeIf { it.contains("/videos/") } ?: return null
+        val title = titleAnchor.text().trim().ifBlank { return null }
+        val poster = selectFirst("img[data-src]")?.attr("data-src")
+            ?: selectFirst("img[src]")?.attr("src")
+
+        return newMovieSearchResponse(
+            name = title,
+            url = normalizeVideoUrl(href),
+            type = TvType.NSFW,
+        ) {
+            this.posterUrl = poster?.let(::fixUrl)
+        }
+    }
+
     private fun parseVideoCards(document: Document): List<SearchResponse> {
         return document.select("div.video-img-box.mb-e-20")
-            .mapNotNull { it.toListingVideo()?.toSearchResponse() }
+            .mapNotNull { it.toSearchResponseFromCard() }
             .distinctBy { it.url }
     }
 
@@ -148,16 +164,6 @@ class JableProvider : MainAPI() {
                 }
             }
             .distinctBy { it.url }
-    }
-
-    private fun ListingVideo.toSearchResponse(): SearchResponse {
-        return newMovieSearchResponse(
-            name = title,
-            url = url,
-            type = TvType.NSFW,
-        ) {
-            this.posterUrl = posterUrl
-        }
     }
 
     private suspend fun fetchListing(url: String): List<SearchResponse> {
@@ -278,7 +284,7 @@ class JableProvider : MainAPI() {
             }
             .ifEmpty { null }
         val recommendations = document.select("div.video-img-box.mb-e-20")
-            .mapNotNull { it.toListingVideo()?.toSearchResponse() }
+            .mapNotNull { it.toSearchResponseFromCard() }
             .filter { it.url != normalizeVideoUrl(url) }
             .distinctBy { it.url }
 

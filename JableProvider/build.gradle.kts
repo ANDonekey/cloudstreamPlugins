@@ -1,4 +1,4 @@
-﻿version = 3
+﻿version = 4
 
 cloudstream {
     description = "Jable.tv provider for Cloudstream"
@@ -14,4 +14,5 @@ cloudstream {
 android {
     namespace = "com.jable"
 }
+
 
