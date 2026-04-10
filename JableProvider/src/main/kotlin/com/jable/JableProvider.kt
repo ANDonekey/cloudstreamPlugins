@@ -14,9 +14,11 @@ import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.fixUrl
 import com.lagradost.cloudstream3.mainPage
 import com.lagradost.cloudstream3.mainPageOf
+import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.newHomePageResponse
 import com.lagradost.cloudstream3.newMovieLoadResponse
 import com.lagradost.cloudstream3.newMovieSearchResponse
+import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper
 import org.jsoup.nodes.Document
@@ -181,17 +183,28 @@ class JableProvider : MainAPI() {
         val posterUrl = document.selectFirst("meta[property=og:image]")?.attr("content")?.let(::fixUrl)
         val plot = document.selectFirst("meta[name=description]")?.attr("content")?.trim()
         val videos = parseVideoCards(document)
+        val episodes = videos.mapIndexed { index, item ->
+            newEpisode(
+                url = item.url,
+                initializer = {
+                    this.name = item.name
+                    this.posterUrl = item.posterUrl
+                    this.season = 1
+                    this.episode = index + 1
+                },
+                fix = false,
+            )
+        }
 
-        return newMovieLoadResponse(
+        return newTvSeriesLoadResponse(
             name = title,
             url = normalizedUrl,
             type = TvType.NSFW,
-            dataUrl = normalizedUrl,
+            episodes = episodes,
         ) {
             this.posterUrl = posterUrl
             this.plot = plot
             this.tags = listOf("分類頁")
-            this.recommendations = videos
         }
     }
 
