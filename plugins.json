@@ -11,7 +11,7 @@
         "tvTypes": [
             "NSFW"
         ],
-        "version": 1,
+        "version": 2,
         "internalName": "JableProvider",
         "description": "Jable.tv provider for Cloudstream",
         "url": "https://raw.githubusercontent.com/ANDonekey/cloudstreamPlugins/builds/JableProvider.cs3",
