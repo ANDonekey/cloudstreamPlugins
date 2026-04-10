@@ -1,5 +1,25 @@
 [
     {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=hanime1.me&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/ANDonekey/cloudstreamPlugins",
+        "fileSize": 22893,
+        "status": 3,
+        "language": "zh",
+        "authors": [
+            "ANDonekey",
+            "Codex"
+        ],
+        "tvTypes": [
+            "NSFW"
+        ],
+        "version": 1,
+        "internalName": "Hanime1Provider",
+        "description": "Hanime1.me provider for Cloudstream",
+        "url": "https://raw.githubusercontent.com/ANDonekey/cloudstreamPlugins/builds/Hanime1Provider.cs3",
+        "name": "Hanime1Provider"
+    },
+    {
         "iconUrl": "https://assets-cdn.jable.tv/assets/icon/favicon.png",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/ANDonekey/cloudstreamPlugins",
@@ -17,5 +37,46 @@
         "description": "Jable.tv provider for Cloudstream",
         "url": "https://raw.githubusercontent.com/ANDonekey/cloudstreamPlugins/builds/JableProvider.cs3",
         "name": "JableProvider"
+    },
+    {
+        "iconUrl": "https://missav.ws/favicon.ico",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/ANDonekey/cloudstreamPlugins",
+        "fileSize": 35409,
+        "status": 3,
+        "language": "zh",
+        "authors": [
+            "ANDonekey",
+            "Codex"
+        ],
+        "tvTypes": [
+            "NSFW"
+        ],
+        "version": 1,
+        "internalName": "MissAVProvider",
+        "description": "MissAV.ws provider for Cloudstream (Chinese categories)",
+        "url": "https://raw.githubusercontent.com/ANDonekey/cloudstreamPlugins/builds/MissAVProvider.cs3",
+        "name": "MissAVProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=supjav.com&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/ANDonekey/cloudstreamPlugins",
+        "fileSize": 29661,
+        "status": 3,
+        "language": "en",
+        "authors": [
+            "Phisher98",
+            "ANDonekey",
+            "Codex"
+        ],
+        "tvTypes": [
+            "NSFW"
+        ],
+        "version": 1,
+        "internalName": "SupjavProvider",
+        "description": "Supjav.com provider for Cloudstream",
+        "url": "https://raw.githubusercontent.com/ANDonekey/cloudstreamPlugins/builds/SupjavProvider.cs3",
+        "name": "SupjavProvider"
     }
 ]
