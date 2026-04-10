@@ -3,6 +3,7 @@
         "iconUrl": "https://assets-cdn.jable.tv/assets/icon/favicon.png",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/ANDonekey/cloudstreamPlugins",
+        "fileSize": 22577,
         "status": 3,
         "language": "zh",
         "authors": [
@@ -11,7 +12,7 @@
         "tvTypes": [
             "NSFW"
         ],
-        "version": 2,
+        "version": 3,
         "internalName": "JableProvider",
         "description": "Jable.tv provider for Cloudstream",
         "url": "https://raw.githubusercontent.com/ANDonekey/cloudstreamPlugins/builds/JableProvider.cs3",
