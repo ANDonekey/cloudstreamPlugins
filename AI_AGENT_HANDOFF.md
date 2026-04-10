@@ -3,14 +3,20 @@
 ## 0. 快速 SOP（Windows）
 ```powershell
 cd F:\codx\cloudstreamplug
-$env:JAVA_HOME='F:\tools\jdks\jdk-17.0.18+8'
+# 1) 切到 Java 17（自动探测，找不到就手动改）
+$env:JAVA_HOME=(Get-ChildItem 'F:\tools\jdks' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'jdk-17*' } | Select-Object -First 1 -ExpandProperty FullName)
 $env:GRADLE_USER_HOME='F:\tools\home\.gradle'
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
 java -version
+
+# 2) 选择要编译/部署的插件
+$plugin='SevenMMTVProvider'   # 例如 MissAVProvider / SevenMMTVProvider
+
+# 3) 编译 + 部署
 adb devices
 adb shell cmd appops set com.lagradost.cloudstream3 MANAGE_EXTERNAL_STORAGE allow
-.\gradlew.bat MissAVProvider:make
-.\gradlew.bat MissAVProvider:deployWithAdb
+.\gradlew.bat "$plugin`:make"
+.\gradlew.bat "$plugin`:deployWithAdb"
 ```
 
 ## 1. 当前 MissAV 插件基线
