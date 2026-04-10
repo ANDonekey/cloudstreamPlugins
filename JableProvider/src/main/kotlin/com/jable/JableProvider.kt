@@ -54,7 +54,7 @@ class JableProvider : MainAPI() {
 
     private val menuCategoriesPath = "__menu__/categories"
     private val listingPrefixes = listOf("/categories/", "/tags/", "/models/", "/search/")
-    private val posterHeaders = mapOf("Referer" to "$mainUrl/")
+    private val imageHeaders = mapOf("Referer" to "$mainUrl/")
 
     override val mainPage = mainPageOf(
         *listOf(
@@ -81,7 +81,7 @@ class JableProvider : MainAPI() {
             fix = false,
         ) {
             this.posterUrl = posterUrl
-            this.posterHeaders = posterHeaders
+            this.posterHeaders = this@JableProvider.imageHeaders
         }
     }
 
@@ -153,7 +153,7 @@ class JableProvider : MainAPI() {
             type = TvType.NSFW,
         ) {
             this.posterUrl = posterUrl
-            this.posterHeaders = posterHeaders
+            this.posterHeaders = this@JableProvider.imageHeaders
         }
     }
 
