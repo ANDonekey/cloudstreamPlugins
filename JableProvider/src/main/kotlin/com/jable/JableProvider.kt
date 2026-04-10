@@ -54,6 +54,7 @@ class JableProvider : MainAPI() {
 
     private val menuCategoriesPath = "__menu__/categories"
     private val listingPrefixes = listOf("/categories/", "/tags/", "/models/", "/search/")
+    private val posterHeaders = mapOf("Referer" to "$mainUrl/")
 
     override val mainPage = mainPageOf(
         *listOf(
@@ -80,6 +81,7 @@ class JableProvider : MainAPI() {
             fix = false,
         ) {
             this.posterUrl = posterUrl
+            this.posterHeaders = posterHeaders
         }
     }
 
@@ -102,6 +104,9 @@ class JableProvider : MainAPI() {
         val href = titleAnchor?.attr("href")?.takeIf { it.contains("/videos/") } ?: return null
         val title = titleAnchor.text().trim().ifBlank { return null }
         val poster = selectFirst("img[data-src]")?.attr("data-src")
+            ?: selectFirst("img[data-original]")?.attr("data-original")
+            ?: selectFirst("img[data-srcset]")?.attr("data-srcset")?.substringBefore(",")?.trim()?.substringBefore(" ")
+            ?: selectFirst("img[srcset]")?.attr("srcset")?.substringBefore(",")?.trim()?.substringBefore(" ")
             ?: selectFirst("img[src]")?.attr("src")
         val durationLabel = selectFirst(".absolute-bottom-right .label, span.label")?.text()?.trim()
 
@@ -148,6 +153,7 @@ class JableProvider : MainAPI() {
             type = TvType.NSFW,
         ) {
             this.posterUrl = posterUrl
+            this.posterHeaders = posterHeaders
         }
     }
 
