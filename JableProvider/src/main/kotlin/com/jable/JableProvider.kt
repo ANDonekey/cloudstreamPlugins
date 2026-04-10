@@ -44,6 +44,14 @@ class JableProvider : MainAPI() {
         val posterUrl: String? = null,
     )
 
+    private data class ListingVideo(
+        val title: String,
+        val url: String,
+        val posterUrl: String? = null,
+        val durationLabel: String? = null,
+        val durationSeconds: Int? = null,
+    )
+
     private val menuCategoriesPath = "__menu__/categories"
     private val listingPrefixes = listOf("/categories/", "/tags/", "/models/", "/search/")
 
@@ -75,9 +83,40 @@ class JableProvider : MainAPI() {
         }
     }
 
+    private fun parseDurationToSeconds(label: String?): Int? {
+        val parts = label?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.split(":")
+            ?.mapNotNull { it.toIntOrNull() }
+            ?: return null
+
+        return when (parts.size) {
+            3 -> parts[0] * 3600 + parts[1] * 60 + parts[2]
+            2 -> parts[0] * 60 + parts[1]
+            else -> null
+        }
+    }
+
+    private fun Element.toListingVideo(): ListingVideo? {
+        val titleAnchor = selectFirst("h6.title a") ?: select("a[href*=\"/videos/\"]").lastOrNull()
+        val href = titleAnchor?.attr("href")?.takeIf { it.contains("/videos/") } ?: return null
+        val title = titleAnchor.text().trim().ifBlank { return null }
+        val poster = selectFirst("img[data-src]")?.attr("data-src")
+            ?: selectFirst("img[src]")?.attr("src")
+        val durationLabel = selectFirst(".absolute-bottom-right .label, span.label")?.text()?.trim()
+
+        return ListingVideo(
+            title = title,
+            url = normalizeVideoUrl(href),
+            posterUrl = poster?.let(::fixUrl),
+            durationLabel = durationLabel,
+            durationSeconds = parseDurationToSeconds(durationLabel),
+        )
+    }
+
     private fun parseVideoCards(document: Document): List<SearchResponse> {
         return document.select("div.video-img-box.mb-e-20")
-            .mapNotNull { it.toSearchResponse() }
+            .mapNotNull { it.toListingVideo()?.toSearchResponse() }
             .distinctBy { it.url }
     }
 
@@ -102,19 +141,13 @@ class JableProvider : MainAPI() {
             .distinctBy { it.url }
     }
 
-    private fun Element.toSearchResponse(): SearchResponse? {
-        val titleAnchor = selectFirst("h6.title a") ?: select("a[href*=\"/videos/\"]").lastOrNull()
-        val href = titleAnchor?.attr("href")?.takeIf { it.contains("/videos/") } ?: return null
-        val title = titleAnchor.text().trim().ifBlank { return null }
-        val poster = selectFirst("img[data-src]")?.attr("data-src")
-            ?: selectFirst("img[src]")?.attr("src")
-
+    private fun ListingVideo.toSearchResponse(): SearchResponse {
         return newMovieSearchResponse(
             name = title,
-            url = normalizeVideoUrl(href),
+            url = url,
             type = TvType.NSFW,
         ) {
-            this.posterUrl = poster?.let(::fixUrl)
+            this.posterUrl = posterUrl
         }
     }
 
@@ -182,15 +215,19 @@ class JableProvider : MainAPI() {
             ?: throw ErrorLoadingException("No listing title found for $url")
         val posterUrl = document.selectFirst("meta[property=og:image]")?.attr("content")?.let(::fixUrl)
         val plot = document.selectFirst("meta[name=description]")?.attr("content")?.trim()
-        val videos = parseVideoCards(document)
+        val videos = document.select("div.video-img-box.mb-e-20")
+            .mapNotNull { it.toListingVideo() }
+            .distinctBy { it.url }
         val episodes = videos.mapIndexed { index, item ->
             newEpisode(
                 url = item.url,
                 initializer = {
-                    this.name = item.name
+                    this.name = item.title
                     this.posterUrl = item.posterUrl
                     this.season = 1
                     this.episode = index + 1
+                    this.description = item.durationLabel
+                    this.runTime = item.durationSeconds
                 },
                 fix = false,
             )
@@ -232,7 +269,7 @@ class JableProvider : MainAPI() {
             }
             .ifEmpty { null }
         val recommendations = document.select("div.video-img-box.mb-e-20")
-            .mapNotNull { it.toSearchResponse() }
+            .mapNotNull { it.toListingVideo()?.toSearchResponse() }
             .filter { it.url != normalizeVideoUrl(url) }
             .distinctBy { it.url }
 
