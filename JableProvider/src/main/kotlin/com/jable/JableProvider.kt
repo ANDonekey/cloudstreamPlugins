@@ -54,7 +54,6 @@ class JableProvider : MainAPI() {
 
     private val menuCategoriesPath = "__menu__/categories"
     private val listingPrefixes = listOf("/categories/", "/tags/", "/models/", "/search/")
-    private val imageHeaders = mapOf("Referer" to "$mainUrl/")
 
     override val mainPage = mainPageOf(
         *listOf(
@@ -81,7 +80,6 @@ class JableProvider : MainAPI() {
             fix = false,
         ) {
             this.posterUrl = posterUrl
-            this.posterHeaders = this@JableProvider.imageHeaders
         }
     }
 
@@ -103,11 +101,17 @@ class JableProvider : MainAPI() {
         val titleAnchor = selectFirst("h6.title a") ?: select("a[href*=\"/videos/\"]").lastOrNull()
         val href = titleAnchor?.attr("href")?.takeIf { it.contains("/videos/") } ?: return null
         val title = titleAnchor.text().trim().ifBlank { return null }
-        val poster = selectFirst("img[data-src]")?.attr("data-src")
-            ?: selectFirst("img[data-original]")?.attr("data-original")
-            ?: selectFirst("img[data-srcset]")?.attr("data-srcset")?.substringBefore(",")?.trim()?.substringBefore(" ")
-            ?: selectFirst("img[srcset]")?.attr("srcset")?.substringBefore(",")?.trim()?.substringBefore(" ")
-            ?: selectFirst("img[src]")?.attr("src")
+        val poster = sequenceOf(
+            selectFirst("img[data-src]")?.attr("data-src"),
+            selectFirst("img[data-original]")?.attr("data-original"),
+            selectFirst("img[data-srcset]")?.attr("data-srcset")?.substringBefore(",")?.trim()?.substringBefore(" "),
+            selectFirst("img[srcset]")?.attr("srcset")?.substringBefore(",")?.trim()?.substringBefore(" "),
+            selectFirst("img[src]")?.attr("src"),
+        )
+            .mapNotNull { it?.trim() }
+            .firstOrNull { candidate ->
+                candidate.isNotBlank() && !candidate.contains("placeholder", ignoreCase = true)
+            }
         val durationLabel = selectFirst(".absolute-bottom-right .label, span.label")?.text()?.trim()
 
         return ListingVideo(
@@ -153,7 +157,6 @@ class JableProvider : MainAPI() {
             type = TvType.NSFW,
         ) {
             this.posterUrl = posterUrl
-            this.posterHeaders = this@JableProvider.imageHeaders
         }
     }
 
